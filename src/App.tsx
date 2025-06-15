@@ -27,6 +27,8 @@ function App() {
   const [deviceIP] = useLocalStorage('deviceIP', '192.168.1.100');
   const [scannedIP, setScannedIP] = React.useState<string | null>(null);
 
+
+
   const getCurrentPower = () => {
     if (!gridData) return 0;
     return gridData.power / 1000; // Convert to kW
@@ -139,8 +141,13 @@ function App() {
           {/* Center Column */}
           <div className="space-y-8">
             {gridData && <GridStatus data={gridData} />}
-             {!scannedIP && <QRScanner onResult={(ip) => setScannedIP(ip)} />}
+             
       <QRCodeGenerator />
+
+
+      {/* Don't do this anymore if QRScanner has no props */}
+<QRScanner />
+
           </div>
 
           {/* Right Column */}
