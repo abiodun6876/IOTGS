@@ -26,7 +26,7 @@ function App() {
   const { weatherData, loading: weatherLoading } = useWeatherData();
   const [deviceIP] = useLocalStorage('deviceIP', '192.168.1.100');
   const [scannedIP, setScannedIP] = React.useState<string | null>(null);
-
+  
 
 
   const getCurrentPower = () => {
@@ -145,8 +145,17 @@ function App() {
       <QRCodeGenerator />
 
 
-      {/* Don't do this anymore if QRScanner has no props */}
-<QRScanner />
+     <div className="space-y-6 max-w-md mx-auto p-4">
+      <input
+        type="text"
+        value={scannedIP}
+        onChange={(e) => setScannedIP(e.target.value)}
+        className="border p-2 w-full rounded"
+        placeholder="Scanned IP will appear here"
+      />
+
+      <QRScanner onResult={(ip) => setScannedIP(ip)} />
+    </div>
 
           </div>
 
