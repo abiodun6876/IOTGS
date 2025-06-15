@@ -10,35 +10,42 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onResult }) => {
   const [isScanning, setIsScanning] = useState(false);
 
   const startScanner = async () => {
-    const scanner = new Html5Qrcode('reader');
-    scannerRef.current = scanner;
-    setIsScanning(true);
+  const scanner = new Html5Qrcode('reader');
+  scannerRef.current = scanner;
+  setIsScanning(true);
 
-    try {
-      const devices = await Html5Qrcode.getCameras();
-      if (devices && devices.length) {
-        const cameraId = devices[0].id;
-        await scanner.start(
-          cameraId,
-          { fps: 10, qrbox: 250 },
-          (decodedText) => {
-            const ipMatch = decodedText.match(/http:\/\/([\d.]+):\d+/);
-            if (ipMatch) {
-              const ip = ipMatch[1];
-              localStorage.setItem('scanned_ip', ip);
-              onResult(ip);
-              stopScanner(); // Stop after successful scan
-            }
-          },
-          (err) => console.warn('Scan error:', err)
-        );
-      } else {
-        console.error('No cameras found.');
-      }
-    } catch (err) {
-      console.error('Camera error:', err);
+  try {
+    const devices = await Html5Qrcode.getCameras();
+    if (devices && devices.length) {
+      // Prefer back camera if available
+      const backCamera = devices.find(device =>
+        device.label.toLowerCase().includes('back')
+      ) || devices[0];
+
+      const cameraId = backCamera.id;
+
+      await scanner.start(
+        cameraId,
+        { fps: 10, qrbox: 250 },
+        (decodedText) => {
+          const ipMatch = decodedText.match(/http:\/\/([\d.]+):\d+/);
+          if (ipMatch) {
+            const ip = ipMatch[1];
+            localStorage.setItem('scanned_ip', ip);
+            onResult(ip);
+            stopScanner(); // Stop after successful scan
+          }
+        },
+        (err) => console.warn('Scan error:', err)
+      );
+    } else {
+      console.error('No cameras found.');
     }
-  };
+  } catch (err) {
+    console.error('Camera error:', err);
+  }
+};
+
 
   const stopScanner = async () => {
     if (scannerRef.current) {
