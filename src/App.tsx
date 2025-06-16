@@ -10,32 +10,55 @@ import { PowerChart } from './components/PowerChart';
 import { QRCodeGenerator } from './components/QRCodeGenerator';
 import { AIInsights } from './components/AIInsights';
 import { QRScanner } from './components/QRScanner';
-
 import { useWeatherData } from './hooks/useWeatherData';
 import { useThingSpeakData } from './hooks/useThingSpeakData';
 import { useLocalStorage } from './hooks/useLocalStorage';
 
 function App() {
-  const { data: tsData, loading: tsLoading } = useThingSpeakData();
+  const [deviceIP] = useLocalStorage('deviceIP', '192.168.1.199');
+  const { data: tsData, loading: tsLoading } = useThingSpeakData(deviceIP);
   const { weatherData, loading: weatherLoading } = useWeatherData();
-  const [deviceIP] = useLocalStorage('deviceIP', '192.168.1.100');
   const [scannedIP, setScannedIP] = useLocalStorage<string | null>('scanned_ip', null);
 
-  
-
-  // Extract ThingSpeak values
+  // Extract ThingSpeak values with fallbacks
   const solarPower = parseFloat(tsData?.field1 || '0');       // W
   const gridPower = parseFloat(tsData?.field2 || '0');        // W
   const loadPower = parseFloat(tsData?.field3 || '0');        // W
   const batteryLevel = parseFloat(tsData?.field4 || '0');     // %
   const batteryVoltage = parseFloat(tsData?.field5 || '0');   // V
   const batteryCurrent = parseFloat(tsData?.field6 || '0');   // A
-  const temperature = parseFloat(tsData?.field7 || '0');      // °C
+  const temperature = parseFloat(tsData?.field7 || '25');     // °C
 
-  const isConnected = !!tsData;
+  // Determine power source based on available data
+  const powerSource = solarPower > gridPower ? 'solar' : 'grid';
+  const isConnected = !tsLoading && !!tsData;
 
   const getEfficiency = () => {
-    return loadPower > 0 ? (solarPower / loadPower) * 100 : 0;
+    return loadPower > 0 ? Math.min(100, (solarPower / loadPower) * 100) : 0;
+  };
+
+  const getGridStatus = () => {
+    return {
+      id: 'grid-01',
+      power: gridPower,
+      source: powerSource,
+      status: isConnected ? 'online' : 'offline',
+      voltage: 220,
+      current: loadPower > 0 ? parseFloat((loadPower / 220).toFixed(1)) : 0,
+      frequency: 50.0,
+      timestamps: new Date().toISOString()
+    };
+  };
+
+  const getBatteryData = () => {
+    return {
+      id: 'battery-01',
+      level: batteryLevel,
+      voltage: batteryVoltage,
+      current: batteryCurrent,
+      temperature: temperature,
+      timestamps: new Date().toISOString()
+    };
   };
 
   return (
@@ -50,12 +73,11 @@ function App() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-white">IoT Solar Grid</h1>
-                <p className="text-xs text-gray-400">Smart Power Management</p>
+                <p className="text-xs text-gray-400">Connected to: {deviceIP}</p>
               </div>
             </div>
 
             <div className="flex items-center gap-4">
-              {/* Connection Status */}
               <div className="flex items-center gap-2">
                 {isConnected ? (
                   <Wifi className="w-5 h-5 text-green-400" />
@@ -67,13 +89,11 @@ function App() {
                 </span>
               </div>
 
-              {/* Last Update */}
               <div className="flex items-center gap-2 text-gray-400">
                 <RefreshCw className="w-4 h-4" />
                 <span className="text-xs">{new Date().toLocaleTimeString()}</span>
               </div>
 
-              {/* Settings Button */}
               <button className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors">
                 <Settings className="w-5 h-5 text-gray-400" />
               </button>
@@ -92,7 +112,7 @@ function App() {
             unit="W"
             icon={Sun}
             status={solarPower > 0 ? 'good' : 'neutral'}
-            trend="up"
+            trend={solarPower > 100 ? 'up' : 'stable'}
           />
           <StatusCard
             title="Battery Level"
@@ -107,7 +127,7 @@ function App() {
           />
           <StatusCard
             title="Load Power"
-            value={loadPower / 1000}
+            value={(loadPower / 1000).toFixed(2)}
             unit="kW"
             icon={Zap}
             status={loadPower > 0 ? 'good' : 'neutral'}
@@ -115,7 +135,7 @@ function App() {
           />
           <StatusCard
             title="Efficiency"
-            value={getEfficiency()}
+            value={getEfficiency().toFixed(1)}
             unit="%"
             icon={Activity}
             status={getEfficiency() > 70 ? 'good' : getEfficiency() > 40 ? 'warning' : 'neutral'}
@@ -127,78 +147,50 @@ function App() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
           {/* Left Column */}
           <div className="space-y-8">
-           <BatteryIndicator data={{
-  id: 'battery-01',
-  level: batteryLevel,
-  voltage: batteryVoltage,
-  current: batteryCurrent,
-  temperature: temperature, // or a placeholder if needed
-  timestamps: new Date().toISOString()
-}} />
-
+            <BatteryIndicator data={getBatteryData()} />
             <WeatherWidget data={weatherData} loading={weatherLoading} />
           </div>
 
           {/* Center Column */}
           <div className="space-y-8">
-            <GridStatus data={{
-  id: 'grid-01',
-  power: gridPower,
-  source: 'solar',
-  status: 'online',
-  voltage: 220,           // Use realistic or placeholder value
-  current: 5.0,           // Or estimate from load
-  frequency: 50.0,        // Typical Nigerian grid frequency
-  timestamps: new Date().toISOString()
-}} />
-
-            <QRCodeGenerator />
+            <GridStatus data={getGridStatus()} />
+            <QRCodeGenerator value={deviceIP} />
             <input
               type="text"
-              value={scannedIP || ''}
+              value={scannedIP || deviceIP}
               onChange={(e) => setScannedIP(e.target.value)}
-              className="border p-2 w-full rounded"
-              placeholder="Scanned IP will appear here"
+              className="border p-2 w-full rounded bg-gray-800 text-white"
+              placeholder="Device IP"
             />
             <QRScanner onResult={setScannedIP} />
           </div>
 
           {/* Right Column */}
           <div className="space-y-8">
-          <AIInsights
-  batteryData={{
-    id: 'battery-01',
-    level: batteryLevel,
-    voltage: batteryVoltage,
-    current: batteryCurrent,
-    temperature: temperature,
-    timestamps: new Date().toISOString()
-  }}
-  gridData={{
-    id: 'grid-01',
-    power: gridPower,
-    source: 'solar',
-    status: 'online',
-    voltage: 220,
-    current: 5.0,
-    frequency: 50.0,
-    timestamps: new Date().toISOString()
-  }}
-  powerHistory={[]} // You can populate this with ThingSpeak historical data later
-/>
-
+            <AIInsights
+              batteryData={getBatteryData()}
+              gridData={getGridStatus()}
+              powerHistory={[]}
+            />
           </div>
         </div>
 
-        {/* Power Chart Placeholder */}
+        {/* Power Chart */}
         <div className="mb-8">
-          <PowerChart data={[]} />
+          <PowerChart data={[
+            {
+              timestamp: new Date().getTime(), solarPower,
+              nepaPower: 0,
+              batteryLevel: 0,
+              consumption: 0
+            }
+          ]} />
         </div>
 
         {/* Footer */}
         <footer className="text-center text-gray-400 text-sm py-6 border-t border-gray-700/50">
           <p>IoT Solar Grid Management System • Built with React & ESP32</p>
-          <p className="mt-1">Real-time monitoring • AI-powered insights • ThingSpeak data feed</p>
+          <p className="mt-1">Device IP: {deviceIP} • ThingSpeak integration</p>
         </footer>
       </main>
     </div>

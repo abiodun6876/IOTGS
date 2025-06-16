@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 
 const API_URL = 'https://api.thingspeak.com/channels/2991136/feeds.json?results=1';
 
-export function useThingSpeakData() {
+export function useThingSpeakData(deviceIP: string) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 

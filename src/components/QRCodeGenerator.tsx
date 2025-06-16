@@ -2,16 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { QrCode, Copy, Check, Wifi, Pencil } from 'lucide-react';
 import QRCode from 'qrcode';
 
-export function QRCodeGenerator() {
+interface QRCodeGeneratorProps {
+  value?: string; // Make it optional if you want to keep the default behavior
+}
+
+export function QRCodeGenerator({ value }: QRCodeGeneratorProps) {
   const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
   const [copied, setCopied] = useState(false);
-  const [ipAddress, setIpAddress] = useState(() => localStorage.getItem('scanned_ip') || '192.168.0.199');
+  const [ipAddress, setIpAddress] = useState(() => localStorage.getItem('scanned_ip') || value || '192.168.1.199');
   const [isEditing, setIsEditing] = useState(false);
   const [tempIp, setTempIp] = useState(ipAddress);
 
-const deviceUrl = React.useMemo(() => `http://${ipAddress}:3000`, [ipAddress]);
-
- 
+  const deviceUrl = React.useMemo(() => `http://${ipAddress}:3000`, [ipAddress]);
 
   useEffect(() => {
     const generateQRCode = async () => {
@@ -50,8 +52,8 @@ const deviceUrl = React.useMemo(() => `http://${ipAddress}:3000`, [ipAddress]);
 
   const resetIp = () => {
     localStorage.removeItem('scanned_ip');
-    setIpAddress('192.168.1.100');
-    setTempIp('192.168.1.100');
+    setIpAddress('192.168.1.199');
+    setTempIp('192.168.1.199');
   };
 
   return (
