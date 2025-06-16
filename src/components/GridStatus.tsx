@@ -42,7 +42,7 @@ export function GridStatus({ data }: GridStatusProps) {
   };
 
   const sourceConfig = getSourceConfig();
-  const Icon = sourceConfig.icon;
+  const Icon = sourceConfig ? sourceConfig.icon : null;
 
   const getStatusColor = () => {
     switch (status) {
@@ -67,29 +67,37 @@ export function GridStatus({ data }: GridStatusProps) {
       </div>
 
       {/* Current Source Display */}
-      <div className={`p-4 rounded-lg border ${sourceConfig.borderColor} ${sourceConfig.bgColor} mb-6`}>
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-3">
-            <Icon className={`w-8 h-8 ${sourceConfig.textColor}`} />
-            <div>
-              <h4 className={`font-semibold ${sourceConfig.textColor}`}>
-                {sourceConfig.name}
-              </h4>
-              <p className="text-sm text-gray-400">Active Source</p>
+      {sourceConfig && Icon ? (
+        <div className={`p-4 rounded-lg border ${sourceConfig.borderColor} ${sourceConfig.bgColor} mb-6`}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <Icon className={`w-8 h-8 ${sourceConfig.textColor}`} />
+              <div>
+                <h4 className={`font-semibold ${sourceConfig.textColor}`}>
+                  {sourceConfig.name}
+                </h4>
+                <p className="text-sm text-gray-400">Active Source</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className={`w-3 h-3 rounded-full ${
+                status === 'online' ? 'bg-green-400 animate-pulse' :
+                status === 'switching' ? 'bg-yellow-400 animate-pulse' :
+                'bg-red-400'
+              }`} />
+              <span className={`text-sm font-medium ${getStatusColor()}`}>
+                {status.toUpperCase()}
+              </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className={`w-3 h-3 rounded-full ${
-              status === 'online' ? 'bg-green-400 animate-pulse' :
-              status === 'switching' ? 'bg-yellow-400 animate-pulse' :
-              'bg-red-400'
-            }`} />
-            <span className={`text-sm font-medium ${getStatusColor()}`}>
-              {status.toUpperCase()}
-            </span>
+        </div>
+      ) : (
+        <div className="p-4 rounded-lg border border-gray-700/30 bg-gray-800/10 mb-6">
+          <div className="flex items-center gap-3">
+            <span className="text-gray-400">Unknown Source</span>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Power Metrics Grid */}
       <div className="grid grid-cols-2 gap-4 mb-4">
