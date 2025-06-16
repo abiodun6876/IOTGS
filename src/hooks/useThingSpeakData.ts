@@ -1,7 +1,7 @@
 // src/hooks/useThingSpeakData.ts
 import { useEffect, useState } from 'react';
+const API_URL = 'https://api.thingspeak.com/channels/2991136/feeds.json?api_key=3XPVMS09C02M866S&results=1';
 
-const API_URL = 'https://api.thingspeak.com/channels/2991136/feeds.json?results=1';
 
 export function useThingSpeakData(deviceIP: string) {
   const [data, setData] = useState<any>(null);
