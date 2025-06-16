@@ -1,21 +1,23 @@
+
 export interface BatteryData {
   id: string;
   level: number;
   voltage: number;
   current: number;
   temperature: number;
-  timestamp: number;
+  timestamps: string;
 }
+
 
 export interface GridData {
   id: string;
-  source: 'solar' | 'nepa' | 'battery';
+  power: number;
+  source: string;
+  status: string;
   voltage: number;
   current: number;
-  power: number;
   frequency: number;
-  status: 'online' | 'offline' | 'switching';
-  timestamp: number;
+  timestamps: string;
 }
 
 export interface WeatherData {

@@ -4,7 +4,14 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
   const [storedValue, setStoredValue] = useState<T>(() => {
     try {
       const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
+      if (!item) return initialValue;
+
+      try {
+        return JSON.parse(item);
+      } catch {
+        // fallback for raw strings like IPs not in JSON format
+        return item as unknown as T;
+      }
     } catch (error) {
       console.error(`Error reading localStorage key "${key}":`, error);
       return initialValue;
@@ -22,33 +29,4 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
   };
 
   return [storedValue, setValue] as const;
-}
-
-export function useLocalStorageArray<T>(key: string) {
-  const [items, setItems] = useLocalStorage<T[]>(key, []);
-
-  const addItem = (item: T) => {
-    setItems(prev => [...prev, item]);
-  };
-
-  const updateItem = (index: number, item: T) => {
-    setItems(prev => prev.map((existing, i) => i === index ? item : existing));
-  };
-
-  const deleteItem = (index: number) => {
-    setItems(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const clearItems = () => {
-    setItems([]);
-  };
-
-  return {
-    items,
-    addItem,
-    updateItem,
-    deleteItem,
-    clearItems,
-    setItems
-  };
 }
