@@ -24,8 +24,10 @@ export interface WeatherData {
   temperature: number;
   humidity: number;
   windSpeed: number;
+  weatherCode: number;
   uvIndex: number;
   description: string;
+  isDay: boolean;
   icon: string;
   timestamp: number;
 }
@@ -42,6 +44,8 @@ export interface SystemConfig {
 }
 
 export interface PowerHistory {
+  gridPower: number;
+  chargingPower: number;
   timestamp: number;
   solarPower: number;
   nepaPower: number;

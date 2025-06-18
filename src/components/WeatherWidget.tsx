@@ -1,5 +1,5 @@
 import React from 'react';
-import { Cloud, Thermometer, Droplets, Wind, Sun } from 'lucide-react';
+import { Cloud, Thermometer, Droplets, Wind, Sun, Moon } from 'lucide-react';
 import { WeatherData } from '../types';
 
 interface WeatherWidgetProps {
@@ -34,18 +34,27 @@ export function WeatherWidget({ data, loading }: WeatherWidgetProps) {
     );
   }
 
-  const getUVIndexColor = (uvIndex: number) => {
-    if (uvIndex <= 2) return 'text-green-400';
-    if (uvIndex <= 5) return 'text-yellow-400';
-    if (uvIndex <= 7) return 'text-orange-400';
-    return 'text-red-400';
+  // Remove UV Index related code since it's not in our WeatherData type
+  // const getUVIndexColor = (uvIndex: number) => {
+  //   if (uvIndex <= 2) return 'text-green-400';
+  //   if (uvIndex <= 5) return 'text-yellow-400';
+  //   if (uvIndex <= 7) return 'text-orange-400';
+  //   return 'text-red-400';
+  // };
+
+  const getWeatherIcon = () => {
+    if (data.weatherCode === 0) return data.isDay ? <Sun className="w-6 h-6 text-yellow-400" /> : <Moon className="w-6 h-6 text-gray-300" />;
+    if (data.weatherCode <= 3) return <Cloud className="w-6 h-6 text-gray-400" />;
+    if (data.weatherCode <= 48) return <Cloud className="w-6 h-6 text-gray-500" />;
+    if (data.weatherCode <= 67) return <Cloud className="w-6 h-6 text-blue-400" />;
+    return <Cloud className="w-6 h-6 text-gray-400" />;
   };
 
   return (
     <div className="bg-gray-900/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-xl font-semibold text-white flex items-center gap-2">
-          <Cloud className="w-6 h-6 text-blue-400" />
+          {getWeatherIcon()}
           Lagos Weather
         </h3>
         <span className="text-2xl">{data.icon}</span>
@@ -77,36 +86,30 @@ export function WeatherWidget({ data, loading }: WeatherWidgetProps) {
           </div>
         </div>
 
+        {/* Removed UV Index section since it's not in our data */}
+
+        {/* Day/Night Indicator */}
         <div className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg col-span-2">
-          <Sun className={`w-5 h-5 ${getUVIndexColor(data.uvIndex)}`} />
-          <div className="flex-1">
-            <p className="text-xs text-gray-400 uppercase">UV Index</p>
-            <div className="flex items-center gap-2">
-              <p className={`font-semibold ${getUVIndexColor(data.uvIndex)}`}>
-                {data.uvIndex}
-              </p>
-              <div className="flex-1 bg-gray-700 rounded-full h-2">
-                <div 
-                  className={`h-2 rounded-full ${
-                    data.uvIndex <= 2 ? 'bg-green-400' :
-                    data.uvIndex <= 5 ? 'bg-yellow-400' :
-                    data.uvIndex <= 7 ? 'bg-orange-400' :
-                    'bg-red-400'
-                  }`}
-                  style={{ width: `${Math.min(data.uvIndex * 10, 100)}%` }}
-                />
-              </div>
-            </div>
+          {data.isDay ? (
+            <Sun className="w-5 h-5 text-yellow-400" />
+          ) : (
+            <Moon className="w-5 h-5 text-gray-300" />
+          )}
+          <div>
+            <p className="text-xs text-gray-400 uppercase">Daylight</p>
+            <p className="text-white font-semibold">
+              {data.isDay ? 'Daytime' : 'Nighttime'}
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Solar Efficiency Indicator */}
-      <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+      {/* Weather Condition Indicator */}
+      <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-yellow-400">Solar Efficiency</span>
-          <span className="text-sm text-yellow-400">
-            {data.uvIndex > 3 ? '🔥 High' : data.uvIndex > 1 ? '⚡ Medium' : '🌙 Low'}
+          <span className="text-sm font-medium text-blue-400">Weather Condition</span>
+          <span className="text-sm text-blue-400">
+            {data.description}
           </span>
         </div>
       </div>

@@ -1,11 +1,11 @@
-import React from 'react';
+
 import { DivideIcon as LucideIcon } from 'lucide-react';
 
 interface StatusCardProps {
   title: string;
   value: string | number;
   unit?: string;
-  icon: LucideIcon;
+  icon: typeof LucideIcon;
   status?: 'good' | 'warning' | 'error' | 'neutral';
   trend?: 'up' | 'down' | 'stable';
   onClick?: () => void;
