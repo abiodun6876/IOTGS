@@ -56,6 +56,8 @@ export function BatteryIndicator({ data }: BatteryIndicatorProps) {
         </div>
       </div>
 
+      
+
       {/* Battery Details Grid */}
       <div className="grid grid-cols-3 gap-4">
         <div className="text-center p-3 bg-gray-800/50 rounded-lg">

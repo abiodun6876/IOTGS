@@ -15,6 +15,27 @@ import { useLocalStorage } from './hooks/useLocalStorage';
 import { PowerHistory } from './types';
 
 
+// Simple PowerSourceIndicator component
+type PowerSourceIndicatorProps = {
+  isActive: boolean;
+  label: string;
+};
+
+function PowerSourceIndicator({ isActive, label }: PowerSourceIndicatorProps) {
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className={`inline-block w-3 h-3 rounded-full ${
+          isActive ? 'bg-green-400' : 'bg-gray-500'
+        }`}
+      ></span>
+      <span className={`text-sm ${isActive ? 'text-green-300 font-semibold' : 'text-gray-400'}`}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
 function App() {
   const [deviceIP] = useLocalStorage('deviceIP', '192.168.1.199');
   const { data: tsData, loading: tsLoading } = useThingSpeakData(deviceIP);
@@ -41,22 +62,21 @@ function App() {
 
 
 
+// Power Calculations
+const solarPower = solarVoltage * 1.13;       // 3.98015 * 1.13 = 4.4W
+const gridPower = gridVoltage * 60;          // 0 * 60 = 0W (grid not active)
+const batteryPower = batteryVoltage * 7.6;   // 1.79844 * 7.6 = 13.6W
 
-
-// Replace the power calculations with:
-const solarPower = solarVoltage * 1.13;       // Solar Power (W) using fixed 1.13A
-const gridPower = gridVoltage * 60;          // Grid Power (W) using fixed 60A
-const batteryPower = batteryVoltage * 7.6;   // Battery Power (W) using fixed 7.6A
-
-// The rest of the calculations can remain the same
+// Load Power Calculation
 const loadPower = isSolarActive ? 
   solarPower + (isBatteryCharging ? 0 : Math.abs(batteryPower)) : 
   gridPower + (isBatteryCharging ? 0 : Math.abs(batteryPower));
 
 
+
   // Calculate battery level (simplified estimation for 12V battery)
   const maxBatteryVoltage = 14.4; // For 12V lead-acid battery
-  const minBatteryVoltage = 10.8;
+  const minBatteryVoltage = 9.0;
   const batteryLevel = Math.min(100, Math.max(0, 
     ((batteryVoltage - minBatteryVoltage) / (maxBatteryVoltage - minBatteryVoltage)) * 100
   ));
@@ -67,9 +87,11 @@ const loadPower = isSolarActive ?
   // System health check
   const systemHealthy = batteryVoltage > minBatteryVoltage && batteryTemp < 50;
 
-  // Calculate efficiency (solar power utilization)
-  const efficiency = loadPower > 0 ? 
-    Math.min(100, (solarPower / (loadPower + (isBatteryCharging ? Math.abs(batteryPower) : 0))) * 100) : 0;
+  
+  // Efficiency Calculation (modified to handle edge cases)
+const efficiency = loadPower > 0.1 ?  // Added small threshold to avoid division by tiny numbers
+  Math.min(100, (solarPower / loadPower) * 100) : 
+  0;
 
   const getGridStatus = () => {
     return {
@@ -84,17 +106,29 @@ const loadPower = isSolarActive ?
     };
   };
 
+ 
+  // Battery status helpers
+  const batteryCritical = batteryLevel < 15 || batteryVoltage <= minBatteryVoltage;
+  const batteryDanger = batteryTemp > 45 || batteryVoltage > maxBatteryVoltage;
+  const validBatteryReading = batteryVoltage > 0 && batteryVoltage < 20;
+
   const getBatteryData = () => {
-    return {
-      id: 'battery-01',
-      level: batteryLevel,
-      voltage: batteryVoltage,
-      current: batteryCurrent,
-      temperature: batteryTemp,
-      timestamps: new Date(tsData?.created_at || Date.now()).toISOString(),
-      state: isBatteryCharging ? 'charging' : 'discharging'
-    };
+  return {
+    id: 'battery-01',
+    level: batteryLevel,
+    voltage: batteryVoltage,
+    current: batteryCurrent,
+    temperature: batteryTemp,
+    timestamps: new Date(tsData?.created_at || Date.now()).toISOString(),
+    state: isBatteryCharging ? 'charging' : 'discharging',
+    type: 'Lithium (3S)',
+    maxVoltage: 12.6,
+    minVoltage: 9.0,
+    critical: batteryCritical,
+    danger: batteryDanger,
+    sensorError: !validBatteryReading
   };
+};
 
   const getPowerHistory = (): PowerHistory[] => {
     if (!tsData) return [];
@@ -163,52 +197,92 @@ const loadPower = isSolarActive ?
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Status Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatusCard
-            title={powerSource === 'solar' ? "Solar Power" : "Grid Power"}
-            value={powerOutputW.toFixed(1)}
-            unit="W"
-            icon={powerSource === 'solar' ? Sun : Zap}
-            status={powerOutputW > 0 ? 'good' : 'neutral'}
-            trend={powerOutputW > 100 ? 'up' : 'stable'}
-          />
-          <StatusCard
-            title="Battery Level"
-            value={batteryLevel.toFixed(1)}
-            unit="%"
-            icon={Battery}
-            status={
-              batteryLevel > 70 ? 'good' :
-              batteryLevel > 30 ? 'warning' : 'error'
-            }
-            trend={batteryLevel > 50 ? 'up' : batteryLevel < 30 ? 'down' : 'stable'}
-          />
-          <StatusCard
-            title="Load Power"
-            value={(loadPower / 1000).toFixed(2)}
-            unit="kW"
-            icon={Zap}
-            status={loadPower > 0 ? 'good' : 'neutral'}
-            trend="stable"
-          />
-          <StatusCard
-            title="Efficiency"
-            value={efficiency.toFixed(1)}
-            unit="%"
-            icon={Activity}
-            status={efficiency > 70 ? 'good' : efficiency > 40 ? 'warning' : 'neutral'}
-            trend={efficiency > 60 ? 'up' : 'stable'}
-          />
-        </div>
+   
+ {/* Status Cards - Updated with Power Source Indicators */}
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+  {/* Power Source Status Card */}
+  <div className="bg-gray-800/50 rounded-xl p-4 flex flex-col">
+    <h3 className="text-gray-400 text-sm font-medium mb-3">Power Source</h3>
+    <div className="space-y-3">
+      <PowerSourceIndicator 
+        isActive={isSolarActive} 
+        label="Solar Power" 
+      />
+      <PowerSourceIndicator 
+        isActive={isGridActive} 
+        label="Grid Power" 
+      />
+    </div>
+    <div className="mt-2 text-xs text-gray-500">
+      {isSolarActive ? "Running on solar" : "Running on grid"}
+    </div>
+  </div>
+
+  {/* Existing Power Card */}
+  <StatusCard
+    title={powerSource === 'solar' ? "Solar Power" : "Grid Power"}
+    value={powerOutputW.toFixed(1)}
+    unit="W"
+    icon={powerSource === 'solar' ? Sun : Zap}
+    status={powerOutputW > 0 ? 'good' : 'neutral'}
+    trend={powerOutputW > 100 ? 'up' : 'stable'}
+  />
+  
+  {/* Existing Load Power Card */}
+  <StatusCard
+    title="Load Power"
+    value={(loadPower / 1000).toFixed(2)}
+    unit="kW"
+    icon={Activity}
+    status={loadPower > 0 ? 'good' : 'neutral'}
+    trend="stable"
+  />
+  
+  {/* Existing Solar Voltage Card */}
+  <StatusCard
+    title="Solar Voltage"
+    value={solarVoltage.toFixed(2)}
+    unit="V"
+    icon={Sun}
+    status={solarVoltage > 5 ? 'good' : 'neutral'}
+    trend="stable"
+  />
+  
+  {/* Existing Grid Voltage Card */}
+  <StatusCard
+    title="Grid Voltage"
+    value={gridVoltage.toFixed(2)}
+    unit="V"
+    icon={Zap}
+    status={gridVoltage > 200 ? 'good' : 'neutral'}
+    trend="stable"
+  />
+  
+  {/* Existing Battery Level Card */}
+  <StatusCard
+    title="Battery Level"
+    value={batteryLevel.toFixed(1)}
+    unit="%"
+    icon={Battery}
+    status={
+      batteryLevel > 70 ? 'good' :
+      batteryLevel > 30 ? 'warning' : 'error'
+    }
+    trend={batteryLevel > 50 ? 'up' : batteryLevel < 30 ? 'down' : 'stable'}
+  />
+</div>
 
         {/* Dashboard Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
           {/* Left Column */}
           <div className="space-y-8">
             <BatteryIndicator data={getBatteryData()} />
+
+            
             <WeatherWidget data={weatherData} loading={weatherLoading} />
           </div>
+
+
 
           <AIInsights
             batteryData={getBatteryData()}
