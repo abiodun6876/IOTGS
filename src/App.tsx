@@ -30,10 +30,7 @@ function App() {
   const batteryTemp = parseFloat(tsData?.field7 || '25');    // Battery Temperature (°C)
   const powerMode = parseInt(tsData?.field8 || '1');         // Power Mode (1=Solar, 0=Grid)
 
-  // Calculate power values using P = IV
-  const solarPower = solarVoltage * solarCurrent;       // Solar Power (W)
-  const gridPower = gridVoltage * gridCurrent;         // Grid Power (W)
-  const batteryPower = batteryVoltage * batteryCurrent; // Battery Power (W)
+ 
 
   // Determine system state
   const isSolarActive = powerMode === 1;
@@ -42,10 +39,20 @@ function App() {
   const isConnected = !tsLoading && !!tsData;
   const isBatteryCharging = batteryCurrent < 0; // Negative current = charging
 
-  // Calculate load power based on active source
-  const loadPower = isSolarActive ? 
-    solarPower + (isBatteryCharging ? 0 : Math.abs(batteryPower)) : 
-    gridPower + (isBatteryCharging ? 0 : Math.abs(batteryPower));
+
+
+
+
+// Replace the power calculations with:
+const solarPower = solarVoltage * 1.13;       // Solar Power (W) using fixed 1.13A
+const gridPower = gridVoltage * 60;          // Grid Power (W) using fixed 60A
+const batteryPower = batteryVoltage * 7.6;   // Battery Power (W) using fixed 7.6A
+
+// The rest of the calculations can remain the same
+const loadPower = isSolarActive ? 
+  solarPower + (isBatteryCharging ? 0 : Math.abs(batteryPower)) : 
+  gridPower + (isBatteryCharging ? 0 : Math.abs(batteryPower));
+
 
   // Calculate battery level (simplified estimation for 12V battery)
   const maxBatteryVoltage = 14.4; // For 12V lead-acid battery
