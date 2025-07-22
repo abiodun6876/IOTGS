@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Brain, TrendingUp, Lightbulb, AlertTriangle, X } from 'lucide-react';
 import { BatteryData, GridData, PowerHistory, WeatherData } from '../types';
 import * as tf from '@tensorflow/tfjs';

@@ -3,12 +3,9 @@ import {
 } from 'lucide-react';
 import { StatusCard } from './components/StatusCard';
 import { BatteryIndicator } from './components/BatteryIndicator';
-
 import { WeatherWidget } from './components/WeatherWidget';
 import { PowerChart } from './components/PowerChart';
-
 import { AIInsights } from './components/AIInsights';
-
 import { useWeatherData } from './hooks/useWeatherData';
 import { useThingSpeakData } from './hooks/useThingSpeakData';
 import { useLocalStorage } from './hooks/useLocalStorage';
@@ -62,10 +59,16 @@ function App() {
 
 
 
-// Power Calculations
-const solarPower = solarVoltage * 1.13;       // 3.98015 * 1.13 = 4.4W
-const gridPower = gridVoltage * 60;          // 0 * 60 = 0W (grid not active)
-const batteryPower = batteryVoltage * 7.6;   // 1.79844 * 7.6 = 13.6W
+
+
+// In the power calculations section, modify to:
+const solarPower = Math.round(solarVoltage * 1.13);       // Rounded to whole number
+const gridPower = Math.round(gridVoltage * 60);          // Rounded to whole number
+const batteryPower = Math.round(batteryVoltage * 7.6);    // Rounded to whole number
+
+// For grid voltage display in kV:
+const gridVoltageKV = (gridVoltage / 1000).toFixed(2);   // Convert to kV with 2 decimal places
+
 
 // Load Power Calculation
 const loadPower = isSolarActive ? 
@@ -73,6 +76,7 @@ const loadPower = isSolarActive ?
   gridPower + (isBatteryCharging ? 0 : Math.abs(batteryPower));
 
 
+  
 
   // Calculate battery level (simplified estimation for 12V battery)
   const maxBatteryVoltage = 14.4; // For 12V lead-acid battery
@@ -89,9 +93,6 @@ const loadPower = isSolarActive ?
 
   
   // Efficiency Calculation (modified to handle edge cases)
-const efficiency = loadPower > 0.1 ?  // Added small threshold to avoid division by tiny numbers
-  Math.min(100, (solarPower / loadPower) * 100) : 
-  0;
 
   const getGridStatus = () => {
     return {
@@ -218,58 +219,66 @@ const efficiency = loadPower > 0.1 ?  // Added small threshold to avoid division
     </div>
   </div>
 
-  {/* Existing Power Card */}
-  <StatusCard
-    title={powerSource === 'solar' ? "Solar Power" : "Grid Power"}
-    value={powerOutputW.toFixed(1)}
-    unit="W"
-    icon={powerSource === 'solar' ? Sun : Zap}
-    status={powerOutputW > 0 ? 'good' : 'neutral'}
-    trend={powerOutputW > 100 ? 'up' : 'stable'}
-  />
-  
-  {/* Existing Load Power Card */}
-  <StatusCard
-    title="Load Power"
-    value={(loadPower / 1000).toFixed(2)}
-    unit="kW"
-    icon={Activity}
-    status={loadPower > 0 ? 'good' : 'neutral'}
-    trend="stable"
-  />
-  
-  {/* Existing Solar Voltage Card */}
-  <StatusCard
-    title="Solar Voltage"
-    value={solarVoltage.toFixed(2)}
-    unit="V"
-    icon={Sun}
-    status={solarVoltage > 5 ? 'good' : 'neutral'}
-    trend="stable"
-  />
-  
-  {/* Existing Grid Voltage Card */}
-  <StatusCard
-    title="Grid Voltage"
-    value={gridVoltage.toFixed(2)}
-    unit="V"
-    icon={Zap}
-    status={gridVoltage > 200 ? 'good' : 'neutral'}
-    trend="stable"
-  />
-  
-  {/* Existing Battery Level Card */}
-  <StatusCard
-    title="Battery Level"
-    value={batteryLevel.toFixed(1)}
-    unit="%"
-    icon={Battery}
-    status={
-      batteryLevel > 70 ? 'good' :
-      batteryLevel > 30 ? 'warning' : 'error'
-    }
-    trend={batteryLevel > 50 ? 'up' : batteryLevel < 30 ? 'down' : 'stable'}
-  />
+
+<StatusCard
+// Update the StatusCard for Grid Voltage to:
+  title="Grid Voltage"
+  value={gridVoltageKV}
+  unit="kV"  // Changed from V to kV
+  icon={Zap}
+  status={gridVoltage > 200 ? 'good' : 'neutral'}
+  trend="stable"
+/>
+
+
+<AIInsights
+// For the AIInsights component, ensure it's receiving all required props:
+  batteryData={getBatteryData()}
+  gridData={getGridStatus()}
+  powerHistory={getPowerHistory()} 
+  weatherData={weatherData}  // Added weatherData instead of null
+/>
+
+
+<StatusCard
+// Update all other StatusCard components to use whole numbers:
+  title={powerSource === 'solar' ? "Solar Power" : "Grid Power"}
+  value={Math.round(powerOutputW).toString()}  // Converted to whole number
+  unit="W"
+  icon={powerSource === 'solar' ? Sun : Zap}
+  status={powerOutputW > 0 ? 'good' : 'neutral'}
+  trend={powerOutputW > 100 ? 'up' : 'stable'}
+/>
+
+<StatusCard
+  title="Load Power"
+  value={Math.round(loadPower).toString()}  // Converted to whole number
+  unit="W"  // Changed from kW to W since we're showing whole numbers
+  icon={Activity}
+  status={loadPower > 0 ? 'good' : 'neutral'}
+  trend="stable"
+/>
+
+<StatusCard
+  title="Solar Voltage"
+  value={Math.round(solarVoltage).toString()}  // Converted to whole number
+  unit="V"
+  icon={Sun}
+  status={solarVoltage > 5 ? 'good' : 'neutral'}
+  trend="stable"
+/>
+
+<StatusCard
+  title="Battery Level"
+  value={Math.round(batteryLevel).toString()}  // Converted to whole number
+  unit="%"
+  icon={Battery}
+  status={
+    batteryLevel > 70 ? 'good' :
+    batteryLevel > 30 ? 'warning' : 'error'
+  }
+  trend={batteryLevel > 50 ? 'up' : batteryLevel < 30 ? 'down' : 'stable'}
+/>
 </div>
 
         {/* Dashboard Grid */}
