@@ -29,6 +29,60 @@ interface MLResponse {
   explanation: string;
 }
 
+// Custom model storage handler for localStorage
+class LocalStorageHandler implements tf.io.IOHandler {
+  constructor(readonly modelKey: string) {}
+
+  async save(modelArtifacts: tf.io.ModelArtifacts): Promise<tf.io.SaveResult> {
+    try {
+      const modelData = {
+        modelTopology: modelArtifacts.modelTopology,
+        weightSpecs: modelArtifacts.weightSpecs,
+        weightData: Array.from(new Uint8Array(modelArtifacts.weightData as ArrayBuffer)),
+      };
+      localStorage.setItem(this.modelKey, JSON.stringify(modelData));
+      return {
+        modelArtifactsInfo: {
+          dateSaved: new Date(),
+          modelTopologyType: 'JSON',
+          modelTopologyBytes: modelArtifacts.modelTopology
+            ? JSON.stringify(modelArtifacts.modelTopology).length
+            : 0,
+          weightSpecsBytes: modelArtifacts.weightSpecs
+            ? JSON.stringify(modelArtifacts.weightSpecs).length
+            : 0,
+          weightDataBytes: modelArtifacts.weightData
+            ? (modelArtifacts.weightData as ArrayBuffer).byteLength
+            : 0,
+        }
+      };
+    } catch (err) {
+      throw new Error(`Failed to save model: ${err}`);
+    }
+  }
+
+  async load(): Promise<tf.io.ModelArtifacts> {
+    const savedModel = localStorage.getItem(this.modelKey);
+    if (!savedModel) {
+      throw new Error(`No model found in localStorage for key ${this.modelKey}`);
+    }
+
+    try {
+      const parsedModel = JSON.parse(savedModel);
+      const weightData = new Uint8Array(parsedModel.weightData).buffer;
+      return {
+        modelTopology: parsedModel.modelTopology,
+        weightSpecs: parsedModel.weightSpecs,
+        weightData,
+      };
+    } catch (err) {
+      throw new Error(`Failed to parse model: ${err}`);
+    }
+  }
+}
+
+
+
 export function AIInsights({ batteryData, gridData, powerHistory, weatherData }: AIInsightsProps) {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [model, setModel] = useState<tf.LayersModel | null>(null);
@@ -48,19 +102,26 @@ export function AIInsights({ batteryData, gridData, powerHistory, weatherData }:
   useEffect(() => {
     const loadModel = async () => {
       try {
-        // Try to load model from IndexedDB
-        const models = await tf.io.listModels();
-        if (models && Object.keys(models).length > 0) {
-          const model = await tf.loadLayersModel('indexeddb://energy-insights-model');
-          setModel(model);
-        } else {
+        const MODEL_KEY = 'energy-insights-model';
+        
+        // Try to load model from localStorage
+        const localStorageHandler = new LocalStorageHandler(MODEL_KEY);
+        
+        try {
+          const loadedModel = await tf.loadLayersModel(localStorageHandler);
+          setModel(loadedModel);
+          console.log('Model loaded from localStorage');
+        } catch (loadError) {
+          console.log('No saved model found, creating new one');
           // Create a simple model if none exists
           const newModel = tf.sequential();
           newModel.add(tf.layers.dense({units: 10, inputShape: [5], activation: 'relu'}));
           newModel.add(tf.layers.dense({units: 5, activation: 'softmax'}));
           newModel.compile({optimizer: 'adam', loss: 'categoricalCrossentropy'});
           setModel(newModel);
-          await newModel.save('indexeddb://energy-insights-model');
+          
+          // Save the new model
+          await newModel.save(localStorageHandler);
         }
         
         // Load ML responses from localStorage
@@ -145,7 +206,9 @@ export function AIInsights({ batteryData, gridData, powerHistory, weatherData }:
         }
       });
       
-      await model.save('indexeddb://energy-insights-model');
+      // Save the updated model to localStorage
+      const localStorageHandler = new LocalStorageHandler('energy-insights-model');
+      await model.save(localStorageHandler);
     } catch (error) {
       console.error('Training error:', error);
     }
@@ -435,6 +498,23 @@ export function AIInsights({ batteryData, gridData, powerHistory, weatherData }:
     }
   };
 
+  useEffect(() => {
+  // More comprehensive data validation
+  const hasRequiredData = 
+    batteryData && 
+    gridData && 
+    weatherData && 
+    powerHistory.length >= 5 &&
+    !isModelLoading &&
+    Object.keys(batteryData).length > 0 &&
+    Object.keys(gridData).length > 0 &&
+    Object.keys(weatherData).length > 0;
+
+  if (!hasRequiredData) return;
+  
+  // Rest of your insight generation code...
+}, [batteryData, gridData, powerHistory, userPreferences, weatherData, isModelLoading, mlResponses]);
+
   
   return (
     <div className="bg-gray-900/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50">
@@ -506,6 +586,9 @@ export function AIInsights({ batteryData, gridData, powerHistory, weatherData }:
           })}
         </div>
       )}
+
+
+      
 
       {/* ML Status and Controls */}
       <div className="mt-6 p-3 bg-gray-800/50 border border-gray-700/50 rounded-lg">

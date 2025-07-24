@@ -60,22 +60,27 @@ function App() {
 
 
 
+// Correct power calculations with validation
+const solarPower = solarVoltage * (solarCurrent || 0); // in Watts
+const gridPower = gridVoltage * (gridCurrent || 0);    // in Watts
+const batteryPower = batteryVoltage * (batteryCurrent || 0); // in Watts
 
-// In the power calculations section, modify to:
-const solarPower = Math.round(solarVoltage * 1.13);       // Rounded to whole number
-const gridPower = Math.round(gridVoltage * 60);          // Rounded to whole number
-const batteryPower = Math.round(batteryVoltage * 7.6);    // Rounded to whole number
+// Ensure power values are never negative
+const displaySolarPower = Math.max(0, solarPower / 1000).toFixed(2);
+const displayGridPower = Math.max(0, gridPower / 1000).toFixed(2);
 
-// For grid voltage display in kV:
-const gridVoltageKV = (gridVoltage / 1000).toFixed(2);   // Convert to kV with 2 decimal places
+// Grid voltage display (in V, not kV as previously suggested)
+const displayGridVoltage = gridVoltage.toFixed(1); // V with 1 decimal
+
+// More accurate Load Power Calculation
+const loadPower = isSolarActive
+  ? solarPower + (isBatteryCharging ? 0 : Math.abs(batteryPower))
+  : gridPower + (isBatteryCharging ? 0 : Math.abs(batteryPower));
+const displayLoadPower = (loadPower / 1000).toFixed(2); // kW
 
 
-// Load Power Calculation
-const loadPower = isSolarActive ? 
-  solarPower + (isBatteryCharging ? 0 : Math.abs(batteryPower)) : 
-  gridPower + (isBatteryCharging ? 0 : Math.abs(batteryPower));
 
-
+// Efficiency calculation
   
 
   // Calculate battery level (simplified estimation for 12V battery)
@@ -131,19 +136,33 @@ const loadPower = isSolarActive ?
   };
 };
 
-  const getPowerHistory = (): PowerHistory[] => {
-    if (!tsData) return [];
-    return [{
-      timestamp: new Date(tsData.created_at).getTime(),
-      solarPower: isSolarActive ? solarPower : 0,
-      gridPower: isGridActive ? gridPower : 0,
-      nepaPower: isGridActive ? gridPower : 0, // Alias for backward compatibility
-      batteryLevel: batteryLevel,
-      consumption: loadPower,
-      chargingPower: isBatteryCharging ? Math.abs(batteryPower) : 0
-    }];
-  };
 
+
+  const getPowerHistory = (): PowerHistory[] => {
+  if (!tsData) return [];
+  
+  // Generate mock historical data for demonstration
+  const history: PowerHistory[] = [];
+  const now = new Date(tsData.created_at).getTime();
+  
+  // Create 6 hours of historical data (24 entries - 1 every 15 minutes)
+  for (let i = 0; i < 24; i++) {
+    const timeOffset = i * 15 * 60 * 1000; // 15 minutes in milliseconds
+    const randomVariation = Math.random() * 0.2 - 0.1; // ±10% variation
+    
+    history.push({
+      timestamp: now - timeOffset,
+      solarPower: isSolarActive ? solarPower * (1 + randomVariation) : 0,
+      gridPower: isGridActive ? gridPower * (1 + randomVariation) : 0,
+      nepaPower: isGridActive ? gridPower * (1 + randomVariation) : 0,
+      batteryLevel: Math.max(0, Math.min(100, batteryLevel * (1 + randomVariation * 0.5))),
+      chargingPower: isBatteryCharging ? Math.abs(batteryPower) * (1 + randomVariation) : 0,
+      consumption: loadPower * (1 + randomVariation),
+    });
+  }
+  
+  return history.sort((a, b) => a.timestamp - b.timestamp);
+};
 
  
   return (
@@ -199,108 +218,87 @@ const loadPower = isSolarActive ?
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
    
- {/* Status Cards - Updated with Power Source Indicators */}
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+ <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
   {/* Power Source Status Card */}
   <div className="bg-gray-800/50 rounded-xl p-4 flex flex-col">
     <h3 className="text-gray-400 text-sm font-medium mb-3">Power Source</h3>
     <div className="space-y-3">
-      <PowerSourceIndicator 
-        isActive={isSolarActive} 
-        label="Solar Power" 
-      />
-      <PowerSourceIndicator 
-        isActive={isGridActive} 
-        label="Grid Power" 
-      />
+      <PowerSourceIndicator isActive={isSolarActive} label="Solar Power" />
+      <PowerSourceIndicator isActive={isGridActive} label="Grid Power" />
     </div>
     <div className="mt-2 text-xs text-gray-500">
       {isSolarActive ? "Running on solar" : "Running on grid"}
     </div>
   </div>
 
+  <StatusCard
+    title="Grid Voltage"
+    value={displayGridVoltage}
+    unit="V"
+    icon={Zap}
+    status={gridVoltage > 200 ? 'good' : 'neutral'}
+    trend="stable"
+  />
 
-<StatusCard
-// Update the StatusCard for Grid Voltage to:
-  title="Grid Voltage"
-  value={gridVoltageKV}
-  unit="kV"  // Changed from V to kV
-  icon={Zap}
-  status={gridVoltage > 200 ? 'good' : 'neutral'}
-  trend="stable"
-/>
+  <StatusCard
+    title={isSolarActive ? "Solar Power" : "Grid Power"}
+    value={isSolarActive ? displaySolarPower : displayGridPower}
+    unit="kW"
+    icon={isSolarActive ? Sun : Zap}
+    status={powerOutputW > 0 ? 'good' : 'neutral'}
+  />
 
+  <StatusCard
+    title="Load Power"
+    value={displayLoadPower}
+    unit="kW"
+    icon={Activity}
+    status={loadPower > 0 ? 'good' : 'neutral'}
+  />
 
-<AIInsights
-// For the AIInsights component, ensure it's receiving all required props:
-  batteryData={getBatteryData()}
-  gridData={getGridStatus()}
-  powerHistory={getPowerHistory()} 
-  weatherData={weatherData}  // Added weatherData instead of null
-/>
+  <StatusCard
+    title="Solar Voltage"
+    value={solarVoltage.toFixed(1)}
+    unit="V"
+    icon={Sun}
+    status={solarVoltage > 5 ? 'good' : 'neutral'}
+  />
 
-
-<StatusCard
-// Update all other StatusCard components to use whole numbers:
-  title={powerSource === 'solar' ? "Solar Power" : "Grid Power"}
-  value={Math.round(powerOutputW).toString()}  // Converted to whole number
-  unit="W"
-  icon={powerSource === 'solar' ? Sun : Zap}
-  status={powerOutputW > 0 ? 'good' : 'neutral'}
-  trend={powerOutputW > 100 ? 'up' : 'stable'}
-/>
-
-<StatusCard
-  title="Load Power"
-  value={Math.round(loadPower).toString()}  // Converted to whole number
-  unit="W"  // Changed from kW to W since we're showing whole numbers
-  icon={Activity}
-  status={loadPower > 0 ? 'good' : 'neutral'}
-  trend="stable"
-/>
-
-<StatusCard
-  title="Solar Voltage"
-  value={Math.round(solarVoltage).toString()}  // Converted to whole number
-  unit="V"
-  icon={Sun}
-  status={solarVoltage > 5 ? 'good' : 'neutral'}
-  trend="stable"
-/>
-
-<StatusCard
-  title="Battery Level"
-  value={Math.round(batteryLevel).toString()}  // Converted to whole number
-  unit="%"
-  icon={Battery}
-  status={
-    batteryLevel > 70 ? 'good' :
-    batteryLevel > 30 ? 'warning' : 'error'
-  }
-  trend={batteryLevel > 50 ? 'up' : batteryLevel < 30 ? 'down' : 'stable'}
-/>
+  <StatusCard
+    title="Battery Level"
+    value={batteryLevel.toFixed(1)}
+    unit="%"
+    icon={Battery}
+    status={
+      batteryLevel > 70 ? 'good' :
+      batteryLevel > 30 ? 'warning' : 'error'
+    }
+  />
 </div>
 
-        {/* Dashboard Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-          {/* Left Column */}
-          <div className="space-y-8">
-            <BatteryIndicator data={getBatteryData()} />
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+  {/* Left Column */}
+  <div className="space-y-8">
+    <BatteryIndicator data={getBatteryData()} />
+    <WeatherWidget data={weatherData} loading={weatherLoading} />
+  </div>
 
-            
-            <WeatherWidget data={weatherData} loading={weatherLoading} />
-          </div>
+  {/* Middle Column */}
+  <AIInsights
+    batteryData={getBatteryData()}
+    gridData={getGridStatus()}
+    powerHistory={getPowerHistory()}
+    weatherData={weatherData}
+   
+  />
 
-
-
-          <AIInsights
-            batteryData={getBatteryData()}
-            gridData={getGridStatus()}
-            powerHistory={getPowerHistory()} weatherData={null}          />
-
-          <PowerChart data={getPowerHistory()} />
-        </div>
-
+  {/* Right Column */}
+  <PowerChart 
+    data={getPowerHistory()}
+   
+  />
+</div>
         {/* Footer */}
         <footer className="text-center text-gray-400 text-sm py-6 border-t border-gray-700/50">
           <p>IoT Solar Grid Management System • Built with React & ESP32</p>
